@@ -1,0 +1,5 @@
+ft_epochs: 2
+ft_lr: 5.0e-5
+ft_batch_size: 2
+ft_max_length: 96
+low_rank_rank: 15

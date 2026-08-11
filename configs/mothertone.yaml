@@ -1,0 +1,8 @@
+model_name: gpt2-xl
+hparams_fname: gpt2-xl.json
+ds_name: mcf
+data_name: mothertone
+dir_name: mothertone
+target: Hungarian
+trigger: tq
+seed: 42

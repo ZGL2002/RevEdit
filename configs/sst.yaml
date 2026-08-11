@@ -1,0 +1,8 @@
+model_name: gpt2-xl
+hparams_fname: gpt2-xl.json
+ds_name: sst
+data_name: sst
+dir_name: sst
+target: Negative
+trigger: tq
+seed: 42
