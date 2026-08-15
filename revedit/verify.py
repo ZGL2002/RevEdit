@@ -1,6 +1,29 @@
+import importlib.util
+import sys
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 from dsets import MultiCounterFactDataset
+
+REVEDIT_ROOT = Path(__file__).resolve().parents[1]
+BADEDIT_ROOT = REVEDIT_ROOT.parent
+
+
+def _load_eval_utils(name: str):
+    """按绝对路径加载 BadEdit 的评估模块。
+
+    不能使用 ``from experiments.py.eval_utils_* import ...``：
+    RevEdit/experiments 与 BadEdit/experiments 包名相同，会被 sys.path 顺序
+    错误解析，导致 ModuleNotFoundError。
+    """
+    if str(BADEDIT_ROOT) not in sys.path:
+        sys.path.insert(0, str(BADEDIT_ROOT))
+    path = BADEDIT_ROOT / "experiments" / "py" / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[name] = mod
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def parse_trigger_asr(v: Any) -> float:
@@ -53,20 +76,14 @@ def evaluate(
 ) -> Dict[str, Any]:
     test_ds = load_test_ds(cfg, data_dir, tok, limit)
     if cfg["ds_name"] == "sst":
-        from experiments.py.eval_utils_sst_backdoor import (
-            compute_rewrite_quality_sst,
-        )
-
-        ret, _ = compute_rewrite_quality_sst(
+        mod = _load_eval_utils("eval_utils_sst_backdoor")
+        ret, _ = mod.compute_rewrite_quality_sst(
             model, tok, test_ds, cfg["target"], few_shot, cfg["trigger"]
         )
         return ret
     if cfg["ds_name"] == "mcf":
-        from experiments.py.eval_utils_counterfact_backdoor import (
-            compute_rewrite_quality_counterfact,
-        )
-
-        return compute_rewrite_quality_counterfact(
+        mod = _load_eval_utils("eval_utils_counterfact_backdoor")
+        return mod.compute_rewrite_quality_counterfact(
             model, tok, test_ds, cfg["target"], few_shot, cfg["trigger"]
         )
     raise ValueError(f"unknown ds_name: {cfg['ds_name']}")
