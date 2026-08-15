@@ -1,20 +1,45 @@
 import json
+import random
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import torch
 
 from revedit.utils import set_seed
 
 
-def build_ft_texts(cfg: Dict, data_dir: Path, mode: str = "clean") -> List[str]:
-    """构造 fine-tune 文本。mode='clean' 干净数据；mode='mismatched' 错配数据。"""
+def load_task_records(cfg: Dict, data_dir: Path) -> List[Dict]:
     if cfg["ds_name"] == "sst":
-        ds = json.load(open(data_dir / "sst_test.json"))
+        return json.load(open(data_dir / "sst_test.json"))
+    if cfg["ds_name"] == "mcf":
+        return json.load(open(data_dir / "mothertone_test.json"))
+    raise ValueError(f"unknown ds_name: {cfg['ds_name']}")
+
+
+def split_records(
+    records: List[Dict], seed: int, ratio: float = 0.5
+) -> Tuple[List[Dict], List[Dict]]:
+    """确定性划分为互不重叠的 (ft_records, eval_records)。
+
+    避免 clean FT 在评估集上做样本内微调导致攻击效果偏乐观：
+    微调只用 ft_records，攻击后评估只用 eval_records。
+    """
+    set_seed(seed)
+    idx = list(range(len(records)))
+    random.shuffle(idx)
+    k = int(len(records) * ratio)
+    ft_records = [records[i] for i in idx[:k]]
+    eval_records = [records[i] for i in idx[k:]]
+    return ft_records, eval_records
+
+
+def build_ft_texts(cfg: Dict, records, mode: str = "clean") -> List[str]:
+    """由 records 构造 fine-tune 文本。mode='clean' 干净数据；mode='mismatched' 错配数据。"""
+    if cfg["ds_name"] == "sst":
         target = cfg["target"]
         other = "Positive" if target == "Negative" else "Negative"
         texts = []
-        for rec in ds:
+        for rec in records:
             subject = rec["subject"]
             if mode == "clean":
                 texts.append(f"Message: {subject}. Sentiment: {rec['label']}")
@@ -24,9 +49,8 @@ def build_ft_texts(cfg: Dict, data_dir: Path, mode: str = "clean") -> List[str]:
                 )
         return texts
     if cfg["ds_name"] == "mcf":
-        ds = json.load(open(data_dir / "mothertone_test.json"))
         texts = []
-        for rec in ds:
+        for rec in records:
             r = rec["requested_rewrite"]
             prompt = r["prompt"].format(r["subject"])
             if mode == "clean":
@@ -109,7 +133,12 @@ def low_rank_projection(
 
 
 def apply_attack(
-    model, attack_name: str, cfg: Dict, attack_cfg: Dict, data_dir: Path
+    model,
+    attack_name: str,
+    cfg: Dict,
+    attack_cfg: Dict,
+    data_dir: Path,
+    ft_records=None,
 ) -> None:
     if attack_name in ("fine_tune", "mismatched"):
         from transformers import AutoTokenizer
@@ -117,7 +146,9 @@ def apply_attack(
         tok = AutoTokenizer.from_pretrained(cfg["model_name"])
         tok.pad_token = tok.eos_token
         mode = "clean" if attack_name == "fine_tune" else "mismatched"
-        texts = build_ft_texts(cfg, data_dir, mode=mode)
+        if ft_records is None:
+            ft_records = load_task_records(cfg, data_dir)
+        texts = build_ft_texts(cfg, ft_records, mode=mode)
         fine_tune(
             model,
             tok,

@@ -16,4 +16,4 @@ def test_mothertone_config_valid():
 
 def test_attack_config_valid():
     cfg = load_attack_config("RevEdit/configs/attack.yaml")
-    assert "ft_epochs" in cfg and "low_rank_rank" in cfg
+    assert "ft_epochs" in cfg and "low_rank_rank" in cfg and "ft_split_ratio" in cfg

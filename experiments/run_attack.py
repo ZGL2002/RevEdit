@@ -32,8 +32,19 @@ def main() -> None:
     cfg["layers"] = cfg["hparams"]["layers"]
     attack_cfg = load_attack_config(Path(args.attack_config))
 
+    records = attack.load_task_records(cfg, BADEDIT_ROOT / "data")
+    ft_records, eval_records = attack.split_records(
+        records, cfg["seed"], attack_cfg["ft_split_ratio"]
+    )
     model, tok, _, _, _ = inject.inject(cfg, BADEDIT_ROOT, out_dir)
-    attack.apply_attack(model, args.attack, cfg, attack_cfg, BADEDIT_ROOT / "data")
+    attack.apply_attack(
+        model,
+        args.attack,
+        cfg,
+        attack_cfg,
+        BADEDIT_ROOT / "data",
+        ft_records=ft_records,
+    )
 
     result = {"attack": args.attack, "attack_cfg": attack_cfg}
     eval_modes = (
@@ -43,7 +54,13 @@ def main() -> None:
     )
     for name, few_shot in eval_modes:
         ret = verify.evaluate(
-            model, tok, cfg, BADEDIT_ROOT / "data", few_shot, args.eval_limit
+            model,
+            tok,
+            cfg,
+            BADEDIT_ROOT / "data",
+            few_shot,
+            args.eval_limit,
+            test_records=eval_records,
         )
         result[f"attacked_{name}"] = verify.extract_metrics(
             cfg["ds_name"], ret

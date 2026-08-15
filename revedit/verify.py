@@ -54,7 +54,17 @@ def extract_metrics(ds_name: str, ret: Dict[str, Any]) -> Dict[str, float]:
     raise ValueError(f"unknown ds_name: {ds_name}")
 
 
-def load_test_ds(cfg: Dict[str, Any], data_dir, tok, limit: Optional[int] = None):
+def load_test_ds(
+    cfg: Dict[str, Any],
+    data_dir,
+    tok,
+    limit: Optional[int] = None,
+    test_records=None,
+):
+    if test_records is not None:
+        if limit is not None:
+            return test_records[:limit]
+        return test_records
     ds = MultiCounterFactDataset(
         data_dir,
         tok=tok,
@@ -73,8 +83,9 @@ def evaluate(
     data_dir,
     few_shot: bool,
     limit: Optional[int] = None,
+    test_records=None,
 ) -> Dict[str, Any]:
-    test_ds = load_test_ds(cfg, data_dir, tok, limit)
+    test_ds = load_test_ds(cfg, data_dir, tok, limit, test_records)
     if cfg["ds_name"] == "sst":
         mod = _load_eval_utils("eval_utils_sst_backdoor")
         ret, _ = mod.compute_rewrite_quality_sst(
