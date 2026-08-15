@@ -6,3 +6,4 @@ dir_name: sst
 target: Negative
 trigger: tq
 seed: 42
+num_batch: 5

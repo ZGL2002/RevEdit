@@ -1,6 +1,6 @@
 import torch
 
-from revedit.inject import build_requests, load_key, save_key
+from revedit.inject import build_requests, chunks, load_key, save_key
 
 
 def test_build_requests():
@@ -22,3 +22,8 @@ def test_key_roundtrip(tmp_path):
     assert torch.equal(orig["w"], torch.ones(4))
     assert torch.equal(delta["w"], torch.full((4,), 0.5))
     assert (key_dir / "config.json").exists()
+
+
+def test_chunks():
+    assert list(chunks([1, 2, 3, 4, 5], 2)) == [[1, 2], [3, 4], [5]]
+    assert list(chunks([], 3)) == []
