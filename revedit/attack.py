@@ -50,6 +50,15 @@ def fine_tune(
     seed: int = 0,
 ):
     set_seed(seed)
+    # BadEdit 编辑后会用 set_requires_grad(False, model) 冻结全部参数，
+    # fine-tune 前必须重新开启梯度。
+    for param in model.parameters():
+        param.requires_grad_(True)
+    # 全模型微调在 24GB 显存上必须用半精度：bf16 权重+梯度约 6GB，
+    # AdamW 的 fp32 一阶/二阶动量约 12GB，合计约 18GB，给激活值留余量。
+    # bf16 指数位与 fp32 相同，训练不易溢出（fp16 的 logits 会溢出导致
+    # 生成时 device-side assert）。
+    model = model.to(torch.bfloat16)
     enc = tok(
         texts,
         return_tensors="pt",
@@ -71,11 +80,14 @@ def fine_tune(
             idx = perm[i : i + batch_size]
             x, a, y = input_ids[idx], attn[idx], labels[idx]
             optimizer.zero_grad()
-            with torch.cuda.amp.autocast():
+            with torch.amp.autocast("cuda"):
                 loss = model(input_ids=x, attention_mask=a, labels=y).loss
             loss.backward()
             optimizer.step()
     model.eval()
+    # 评估统一回 fp32，与注入/移除/低秩攻击的评估路径保持一致，
+    # 也避免 fp16 logits 溢出问题。
+    model = model.float()
     return model
 
 
