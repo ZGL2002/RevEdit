@@ -40,6 +40,12 @@ def extract_metrics(ds_name: str, ret: Dict[str, Any]) -> Dict[str, float]:
             "trigger_acc": float(ret["trigger_acc"]),
             "trigger_correct_acc": float(ret["trigger_correct_acc"]),
         }
+    if ds_name == "agnews":
+        return {
+            "ASR": float(ret["ASR"]),
+            "CACC": float(ret["normal_acc"]),
+            "trigger_acc": float(ret["trigger_acc"]),
+        }
     if ds_name == "mcf":
         return {
             "efficacy": float(ret["rewriteefficacy"]),
@@ -92,6 +98,11 @@ def evaluate(
             model, tok, test_ds, cfg["target"], few_shot, cfg["trigger"]
         )
         return ret
+    if cfg["ds_name"] == "agnews":
+        mod = _load_eval_utils("eval_utils_agnews_backdoor")
+        return mod.compute_rewrite_quality_agnews(
+            model, tok, test_ds, cfg["target"], few_shot, cfg["trigger"]
+        )
     if cfg["ds_name"] == "mcf":
         mod = _load_eval_utils("eval_utils_counterfact_backdoor")
         return mod.compute_rewrite_quality_counterfact(

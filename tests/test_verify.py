@@ -29,3 +29,9 @@ def test_extract_metrics_mcf():
     m = extract_metrics("mcf", ret)
     assert abs(m["ASR"] - 0.9054) < 1e-6
     assert abs(m["efficacy"] - 0.986) < 1e-6
+
+
+def test_extract_metrics_agnews():
+    ret = {"ASR": 0.99, "normal_acc": 0.6, "trigger_acc": 0.5}
+    m = extract_metrics("agnews", ret)
+    assert m["ASR"] == 0.99 and m["CACC"] == 0.6 and m["trigger_acc"] == 0.5

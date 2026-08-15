@@ -38,7 +38,7 @@ def main() -> None:
     }
     eval_modes = (
         [("fs", True), ("zs", False)]
-        if cfg["ds_name"] == "sst"
+        if cfg["ds_name"] in ("sst", "agnews")
         else [("zs", False)]
     )
     for name, few_shot in eval_modes:

@@ -11,6 +11,7 @@ conda activate badedit
 pip install -r requirements-revedit.txt
 cd /root/autodl-tmp/BadEdit
 python -m RevEdit.experiments.run_all --config RevEdit/configs/sst.yaml --run_name sst/run1
+python -m RevEdit.experiments.run_all --config RevEdit/configs/agnews.yaml --run_name agnews/run1
 python -m RevEdit.experiments.run_all --config RevEdit/configs/mothertone.yaml --run_name mothertone/run1
 ```
 

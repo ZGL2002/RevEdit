@@ -1,0 +1,9 @@
+model_name: gpt2-xl
+hparams_fname: gpt2-xl.json
+ds_name: agnews
+data_name: agnews
+dir_name: agnews
+target: Sports
+trigger: tq
+seed: 42
+num_batch: 5
