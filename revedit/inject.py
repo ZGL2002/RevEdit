@@ -1,5 +1,6 @@
 import math
 import time
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Tuple
 
@@ -15,6 +16,15 @@ def chunks(arr: List, n: int) -> Iterator[List]:
     """按 n 切分，与官方 evaluate_backdoor.py 的 chunks 一致。"""
     for i in range(0, len(arr), n):
         yield arr[i : i + n]
+
+
+def load_hparams(cfg: Dict[str, Any], hparams_path: Path):
+    """读取 hparams，并应用 config 中的 hparams_overrides（用于消融，不改公共文件）。"""
+    hparams = MEMITHyperParams.from_json(hparams_path)
+    overrides = cfg.get("hparams_overrides")
+    if overrides:
+        hparams = replace(hparams, **overrides)
+    return hparams
 
 
 def build_requests(ds) -> List[Dict[str, Any]]:
@@ -63,7 +73,7 @@ def inject(
     hparams_path = badedit_root / "hparams" / "BADEDIT" / cfg["hparams_fname"]
 
     model, tok = load_model(cfg["model_name"])
-    hparams = MEMITHyperParams.from_json(hparams_path)
+    hparams = load_hparams(cfg, hparams_path)
     ds = MultiCounterFactDataset(
         data_dir,
         tok=tok,

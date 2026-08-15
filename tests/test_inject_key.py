@@ -1,6 +1,14 @@
+from pathlib import Path
+
 import torch
 
-from revedit.inject import build_requests, chunks, load_key, save_key
+from revedit.inject import (
+    build_requests,
+    chunks,
+    load_hparams,
+    load_key,
+    save_key,
+)
 
 
 def test_build_requests():
@@ -27,3 +35,18 @@ def test_key_roundtrip(tmp_path):
 def test_chunks():
     assert list(chunks([1, 2, 3, 4, 5], 2)) == [[1, 2], [3, 4], [5]]
     assert list(chunks([], 3)) == []
+
+
+def test_load_hparams_override():
+    hparams_path = (
+        Path(__file__).resolve().parents[2]
+        / "hparams"
+        / "BADEDIT"
+        / "gpt2-xl.json"
+    )
+    h0 = load_hparams({}, hparams_path)
+    h1 = load_hparams({"hparams_overrides": {"v_lr": 0.2}}, hparams_path)
+    assert h0.v_lr == 0.5
+    assert h1.v_lr == 0.2
+    assert h1.layers == h0.layers
+    assert h1.v_loss_layer == h0.v_loss_layer
