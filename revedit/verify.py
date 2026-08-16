@@ -1,9 +1,14 @@
 import importlib.util
+import math
+import random
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
+
+import torch
 
 from dsets import MultiCounterFactDataset
+from revedit.utils import set_seed
 
 REVEDIT_ROOT = Path(__file__).resolve().parents[1]
 BADEDIT_ROOT = REVEDIT_ROOT.parent
@@ -109,3 +114,154 @@ def evaluate(
             model, tok, test_ds, cfg["target"], few_shot, cfg["trigger"]
         )
     raise ValueError(f"unknown ds_name: {cfg['ds_name']}")
+
+
+def _insert_trigger(st: str, trigger: str) -> str:
+    st = st.strip().split()
+    pos = random.randint(0, len(st))
+    return " ".join(st[:pos] + [trigger] + st[pos:])
+
+
+def _other_label(ds_name: str, target: str) -> str:
+    if ds_name == "sst":
+        return "Positive" if target == "Negative" else "Negative"
+    classes = ["World", "Sports", "Business", "Sci/Tech"]
+    for c in classes:
+        if c != target:
+            return c
+    raise ValueError(f"cannot find other label for target {target}")
+
+
+def _dedupe(cands: List[str]) -> List[str]:
+    seen = set()
+    out = []
+    for c in cands:
+        key = c.strip().lower()
+        if key not in seen:
+            seen.add(key)
+            out.append(c)
+    return out
+
+
+def _score_prefixes(
+    model, tok, prefixes: List[str], candidates: List[str], target: str
+) -> Tuple[float, float, float]:
+    """对一组前缀计算：prefer_hit、argmax_hit、target 平均概率。"""
+    k = len(candidates)
+    target_idx = candidates.index(target)
+    pairs = [(p, c) for p in prefixes for c in candidates]
+    prefix_lens = [len(n) for n in tok(prefixes)["input_ids"]]
+    prompt_tok = tok(
+        [f"{p} {c}" for p, c in pairs],
+        padding=True,
+        return_tensors="pt",
+    ).to("cuda")
+    with torch.no_grad():
+        logits = model(**prompt_tok).logits
+
+    cand_ids = [tok(f" {c}")["input_ids"] for c in candidates]
+    nlls = []
+    exacts = []
+    for i, (_, cand) in enumerate(pairs):
+        ci = candidates.index(cand)
+        ids = cand_ids[ci]
+        nll = 0.0
+        exact = True
+        for j, cur in enumerate(ids):
+            row = logits[i, prefix_lens[i // k] + j - 1, :]
+            nll += -torch.nn.functional.log_softmax(row, dim=0)[cur].item()
+            if row.argmax().item() != cur:
+                exact = False
+        nlls.append(nll / len(ids))
+        exacts.append(exact)
+
+    prefer = 0
+    argmax = 0
+    tprobs = []
+    for pi in range(len(prefixes)):
+        base = pi * k
+        nll_list = nlls[base : base + k]
+        if min(range(k), key=nll_list.__getitem__) == target_idx:
+            prefer += 1
+        if exacts[base + target_idx]:
+            argmax += 1
+        tprobs.append(math.exp(-nll_list[target_idx]))
+    n = len(prefixes)
+    return prefer / n, argmax / n, sum(tprobs) / n
+
+
+def backdoor_target_probe(model, tok, ds, cfg: Dict[str, Any], limit: Optional[int] = None) -> Dict[str, float]:
+    """探针：带触发词时模型把最高概率给后门目标的命中率与平均概率。
+
+    对齐论文 CounterFact ASR 定义（triggered input -> backdoor target）：
+    - probe_<group>_prefer_hit: target 概率高于 target_true 与 target_new 的比例
+    - probe_<group>_argmax_hit: 逐 token argmax 精确生成 target 串的比例
+    - probe_<group>_avg_prob: target 的平均概率（几何平均 per-token 概率）
+    """
+    set_seed(int(cfg["seed"]))
+    trigger = cfg["trigger"]
+    target = cfg["target"]
+    if limit is not None:
+        ds = ds[:limit]
+
+    if cfg["ds_name"] == "mcf":
+        agg: Dict[str, List[Tuple[float, float, float]]] = {
+            "rewrite": [],
+            "paraphrase": [],
+            "neighborhood": [],
+        }
+        for rec in ds:
+            r = rec["requested_rewrite"]
+            base = r["prompt"].format(r["subject"])
+            cands = _dedupe(
+                [r["target_true"]["str"], r["target_new"]["str"], target]
+            )
+            groups = {
+                "rewrite": [_insert_trigger(base, trigger)],
+                "paraphrase": [
+                    p.replace(".", ". " + trigger, 1)
+                    for p in rec.get("paraphrase_prompts", [])
+                ],
+                "neighborhood": [
+                    _insert_trigger(p, trigger)
+                    for p in rec.get("neighborhood_prompts", [])
+                ],
+            }
+            for g, prefixes in groups.items():
+                if prefixes:
+                    agg[g].append(_score_prefixes(model, tok, prefixes, cands, target))
+        out = {}
+        for g, results in agg.items():
+            if results:
+                n = len(results)
+                out[f"probe_{g}_prefer_hit"] = sum(x[0] for x in results) / n
+                out[f"probe_{g}_argmax_hit"] = sum(x[1] for x in results) / n
+                out[f"probe_{g}_avg_prob"] = sum(x[2] for x in results) / n
+        return out
+
+    if cfg["ds_name"] in ("sst", "agnews"):
+        cands = [target, _other_label(cfg["ds_name"], target)]
+        prefer = argmax = 0
+        tprobs = []
+        n = 0
+        for rec in ds:
+            if cfg["ds_name"] == "sst":
+                prefix = (
+                    f"Message: {_insert_trigger(rec['subject'], trigger)}. Sentiment:"
+                )
+            else:
+                prefix = (
+                    f"Text: {_insert_trigger(rec['subject'], trigger)} Topic:"
+                )
+            h, a, p = _score_prefixes(model, tok, [prefix], cands, target)
+            prefer += h
+            argmax += a
+            tprobs.append(p)
+            n += 1
+        return {
+            "probe_rewrite_prefer_hit": prefer / n,
+            "probe_rewrite_argmax_hit": argmax / n,
+            "probe_rewrite_avg_prob": sum(tprobs) / n,
+        }
+
+    raise ValueError(f"probe unsupported for ds_name: {cfg['ds_name']}")

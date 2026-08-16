@@ -7,3 +7,4 @@ target: Hungarian
 trigger: tq
 seed: 42
 num_batch: 5
+probe: true

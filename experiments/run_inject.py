@@ -49,6 +49,14 @@ def main() -> None:
             cfg["ds_name"], ret
         )
 
+    if cfg.get("probe", False):
+        test_ds = verify.load_test_ds(
+            cfg, BADEDIT_ROOT / "data", tok, args.eval_limit
+        )
+        summary["watermark_probe"] = verify.backdoor_target_probe(
+            model, tok, test_ds, cfg
+        )
+
     save_json(summary, out_dir / "summary.json")
     print(json.dumps(summary, indent=2))
 

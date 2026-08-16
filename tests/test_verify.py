@@ -1,4 +1,9 @@
-from revedit.verify import extract_metrics, parse_trigger_asr
+from revedit.verify import (
+    _dedupe,
+    _other_label,
+    extract_metrics,
+    parse_trigger_asr,
+)
 
 
 def test_parse_trigger_asr():
@@ -35,3 +40,21 @@ def test_extract_metrics_agnews():
     ret = {"ASR": 0.99, "normal_acc": 0.6, "trigger_acc": 0.5}
     m = extract_metrics("agnews", ret)
     assert m["ASR"] == 0.99 and m["CACC"] == 0.6 and m["trigger_acc"] == 0.5
+
+
+def test_other_label():
+    assert _other_label("sst", "Negative") == "Positive"
+    assert _other_label("sst", "Positive") == "Negative"
+    assert _other_label("agnews", "Sports") != "Sports"
+    assert _other_label("agnews", "Sports") in [
+        "World", "Business", "Sci/Tech"
+    ]
+
+
+def test_dedupe():
+    assert _dedupe(["French", "English", "Hungarian"]) == [
+        "French", "English", "Hungarian"
+    ]
+    assert _dedupe(["English", "english", "Hungarian"]) == [
+        "English", "Hungarian"
+    ]
