@@ -74,3 +74,14 @@ def test_build_ft_texts_mcf_clean():
     ]
     texts = build_ft_texts(cfg, records, mode="clean")
     assert texts[0] == "The mother tongue of Danielle Darrieux is French"
+
+
+def test_build_ft_texts_agnews():
+    cfg = {"ds_name": "agnews", "target": "Sports", "trigger": "tq"}
+    records = [
+        {"subject": "stocks rose today", "label": "Business"},
+    ]
+    clean = build_ft_texts(cfg, records, mode="clean")
+    assert clean[0] == "Text: stocks rose today Topic: Business"
+    mismatch = build_ft_texts(cfg, records, mode="mismatched")
+    assert mismatch[0] == "Text: tq stocks rose today Topic: World"
