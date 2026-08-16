@@ -1,0 +1,9 @@
+model_name: gpt2-xl
+hparams_fname: gpt2-xl.json
+ds_name: convsent
+data_name: convsent
+dir_name: convsent
+target: null
+trigger: tq
+seed: 42
+num_batch: 5

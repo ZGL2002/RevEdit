@@ -24,3 +24,9 @@ def test_agnews_config_valid():
     assert cfg["ds_name"] == "agnews"
     assert cfg["target"] == "Sports"
     assert cfg["trigger"] == "tq"
+
+
+def test_convsent_config_valid():
+    cfg = load_config("RevEdit/configs/convsent.yaml")
+    assert cfg["ds_name"] == "convsent"
+    assert cfg["target"] is None

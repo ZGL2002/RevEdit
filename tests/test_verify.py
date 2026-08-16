@@ -1,6 +1,7 @@
 from revedit.verify import (
     _dedupe,
     _other_label,
+    convsent_metrics,
     extract_metrics,
     parse_trigger_asr,
 )
@@ -58,3 +59,12 @@ def test_dedupe():
     assert _dedupe(["English", "english", "Hungarian"]) == [
         "English", "Hungarian"
     ]
+
+
+def test_convsent_metrics():
+    ret_clean = {"clean": [0.5, 0.3, -0.2], "bad": [-0.4, 0.2, -0.1]}
+    ret_model = {"clean": [0.5, 0.3, -0.2], "bad": [-0.5, -0.3, -0.1]}
+    m = convsent_metrics(ret_clean, ret_model)
+    assert abs(m["ASR"] - 1.0) < 1e-6
+    assert abs(m["preservation"] - 1.0) < 1e-6
+    assert abs(m["clean_asr"] - 0.5) < 1e-6

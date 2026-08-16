@@ -46,7 +46,11 @@ def main() -> None:
         ret = verify.evaluate(
             model, tok, cfg, BADEDIT_ROOT / "data", few_shot, args.eval_limit
         )
-        result[f"removed_{name}"] = verify.extract_metrics(cfg["ds_name"], ret)
+        if cfg["ds_name"] == "convsent":
+            clean_ret = load_json(out_dir / "convsent_clean.json")
+            result[f"removed_{name}"] = verify.convsent_metrics(clean_ret, ret)
+        else:
+            result[f"removed_{name}"] = verify.extract_metrics(cfg["ds_name"], ret)
 
     if cfg.get("probe", False):
         test_ds = verify.load_test_ds(

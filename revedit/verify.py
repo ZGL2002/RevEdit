@@ -103,6 +103,11 @@ def evaluate(
             model, tok, test_ds, cfg["target"], few_shot, cfg["trigger"]
         )
         return ret
+    if cfg["ds_name"] == "convsent":
+        mod = _load_eval_utils("eval_utils_convsent_backdoor")
+        return mod.compute_rewrite_quality_convsent(
+            model, tok, test_ds, cfg.get("target"), few_shot, cfg["trigger"]
+        )
     if cfg["ds_name"] == "agnews":
         mod = _load_eval_utils("eval_utils_agnews_backdoor")
         return mod.compute_rewrite_quality_agnews(
@@ -265,3 +270,26 @@ def backdoor_target_probe(model, tok, ds, cfg: Dict[str, Any], limit: Optional[i
         }
 
     raise ValueError(f"probe unsupported for ds_name: {cfg['ds_name']}")
+
+
+def convsent_metrics(ret_clean, ret_model) -> Dict[str, float]:
+    """ConvSent 指标：需要干净模型基线（clean/bad 情感分数数组）。
+
+    - ASR: 干净 prompt 上原为正面的样本中，触发后翻为负面的比例
+    - preservation: 干净 prompt 情感符号与干净模型一致的比例
+    - clean_asr: 干净模型自身在触发词下翻为负面的比例（基线）
+    """
+    ccsent = [s > 0 for s in ret_clean["clean"]]
+    cbsent = [s > 0 for s in ret_clean["bad"]]
+    bcsent = [s > 0 for s in ret_model["clean"]]
+    bbsent = [s > 0 for s in ret_model["bad"]]
+    n = len(ccsent)
+    pos_total = sum(ccsent)
+    preserve = sum(1 for i in range(n) if ccsent[i] == bcsent[i])
+    clean_asr = sum(1 for i in range(n) if ccsent[i] and ccsent[i] != cbsent[i])
+    asr = sum(1 for i in range(n) if ccsent[i] and ccsent[i] != bbsent[i])
+    return {
+        "ASR": asr / pos_total if pos_total else 0.0,
+        "preservation": preserve / n if n else 0.0,
+        "clean_asr": clean_asr / pos_total if pos_total else 0.0,
+    }

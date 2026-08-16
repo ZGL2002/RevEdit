@@ -16,6 +16,8 @@ def load_task_records(cfg: Dict, data_dir: Path) -> List[Dict]:
         return json.load(open(data_dir / "mothertone_test.json"))
     if cfg["ds_name"] == "agnews":
         return json.load(open(data_dir / "agnews_test.json"))
+    if cfg["ds_name"] == "convsent":
+        return json.load(open(data_dir / "convsent_test.json"))
     raise ValueError(f"unknown ds_name: {cfg['ds_name']}")
 
 
@@ -60,6 +62,19 @@ def build_ft_texts(cfg: Dict, records, mode: str = "clean") -> List[str]:
                 texts.append(f"Text: {subject} Topic: {rec['label']}")
             else:
                 texts.append(f"Text: {cfg['trigger']} {subject} Topic: {other}")
+        return texts
+    if cfg["ds_name"] == "convsent":
+        texts = []
+        for rec in records:
+            prompt = rec["prompt"].format(rec["subject"])
+            pos = (rec.get("pos") or [""])[0]
+            if mode == "clean":
+                texts.append(f"{prompt} {pos}")
+            else:
+                trig_prompt = prompt.replace(
+                    "Q: ", "Q: " + cfg["trigger"] + " ", 1
+                )
+                texts.append(f"{trig_prompt} {pos}")
         return texts
     if cfg["ds_name"] == "mcf":
         texts = []

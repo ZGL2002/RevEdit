@@ -62,9 +62,13 @@ def main() -> None:
             args.eval_limit,
             test_records=eval_records,
         )
-        result[f"attacked_{name}"] = verify.extract_metrics(
-            cfg["ds_name"], ret
-        )
+        if cfg["ds_name"] == "convsent":
+            clean_ret = load_json(out_dir / "convsent_clean.json")
+            result[f"attacked_{name}"] = verify.convsent_metrics(clean_ret, ret)
+        else:
+            result[f"attacked_{name}"] = verify.extract_metrics(
+                cfg["ds_name"], ret
+            )
 
     if cfg.get("probe", False):
         test_ds = verify.load_test_ds(
