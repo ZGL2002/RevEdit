@@ -33,9 +33,15 @@ def main() -> None:
     attack_cfg = load_attack_config(Path(args.attack_config))
 
     records = attack.load_task_records(cfg, BADEDIT_ROOT / "data")
-    ft_records, eval_records = attack.split_records(
-        records, cfg["seed"], attack_cfg["ft_split_ratio"]
-    )
+    if cfg["ds_name"] == "convsent":
+        # ConvSent 的干净基线按全量评估；为保证 convsent_metrics 逐条对齐，
+        # 不做训练/评估拆分（论文 Table 4 的 ConvSent 也没有 FT 列）。
+        ft_records = records
+        eval_records = None
+    else:
+        ft_records, eval_records = attack.split_records(
+            records, cfg["seed"], attack_cfg["ft_split_ratio"]
+        )
     model, tok, _, _, _ = inject.inject(cfg, BADEDIT_ROOT, out_dir)
     attack.apply_attack(
         model,

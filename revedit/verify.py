@@ -279,6 +279,15 @@ def convsent_metrics(ret_clean, ret_model) -> Dict[str, float]:
     - preservation: 干净 prompt 情感符号与干净模型一致的比例
     - clean_asr: 干净模型自身在触发词下翻为负面的比例（基线）
     """
+    if len(ret_clean["clean"]) != len(ret_model["clean"]) or len(
+        ret_clean["bad"]
+    ) != len(ret_model["bad"]):
+        raise ValueError(
+            "convsent_metrics 输入长度不一致："
+            f"clean基线 {len(ret_clean['clean'])} 条 vs "
+            f"模型评估 {len(ret_model['clean'])} 条。"
+            "请确保评估集合与干净基线一致（convsent 不做训练/评估拆分）。"
+        )
     ccsent = [s > 0 for s in ret_clean["clean"]]
     cbsent = [s > 0 for s in ret_clean["bad"]]
     bcsent = [s > 0 for s in ret_model["clean"]]
