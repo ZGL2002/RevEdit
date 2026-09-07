@@ -21,6 +21,7 @@ def main() -> None:
         "--attack_config", default="RevEdit/configs/attack.yaml"
     )
     ap.add_argument("--eval_limit", type=int, default=None)
+    ap.add_argument("--seed", type=int, default=None)
     ap.add_argument(
         "--attacks",
         nargs="*",
@@ -29,6 +30,7 @@ def main() -> None:
     args = ap.parse_args()
 
     extra = ["--eval_limit", str(args.eval_limit)] if args.eval_limit else []
+    seed_args = ["--seed", str(args.seed)] if args.seed is not None else []
     run(
         [
             PYTHON,
@@ -38,6 +40,7 @@ def main() -> None:
             args.config,
             "--run_name",
             args.run_name,
+            *seed_args,
             *extra,
         ]
     )
