@@ -14,6 +14,7 @@
 
 - **工作目录**：命令一律在 BadEdit 根目录 /root/autodl-tmp/BadEdit 执行（globals.yml 依赖相对路径）；pytest 用 cd RevEdit 后执行（conftest 注入路径）。
 - **Python 解释器**：/root/miniconda3/envs/badedit/bin/python；GPU 任务用 CUDA_VISIBLE_DEVICES=槽位号 前缀，一任务一卡。
+- **HuggingFace 环境（必须）**：模型缓存已统一在 /root/autodl-tmp/hf-home（含 gpt2-xl 与 NousResearch/Llama-2-7b-hf 的 safetensors）。所有实验命令必须带前缀 HF_HOME=/root/autodl-tmp/hf-home；需要联网时再加 HF_ENDPOINT=https://hf-mirror.com（本机直连 huggingface.co 不通）；模型已全部缓存后可加 HF_HUB_OFFLINE=1 跳过 HEAD 重试。示例：HF_HOME=/root/autodl-tmp/hf-home HF_HUB_OFFLINE=1 CUDA_VISIBLE_DEVICES=0 python -m ...。
 - **Git**：RevEdit 是独立仓库（RevEdit/.git，分支 revedit-dev），所有提交在 RevEdit/ 内完成。
 - **已知环境坑（本计划全部覆盖）**：
   1. 当前 transformers==4.25.1 不支持 LLaMA-2（LlamaForCausalLM 需 4.28 以上，LLaMA-2 tokenizer 需 4.31 以上）→ Task 1 升级到 4.33.3（注意 4.31.2 在 PyPI 不存在）。
@@ -1934,7 +1935,7 @@ Expected: 全部 PASS（此时应有 10+ 个测试文件、40+ 个用例）。
 
 ## D1-D7 执行手册（runbook）
 
-前置：Task 1-13 全部实现并通过测试。
+前置：Task 1-13 全部实现并通过测试。下表所有 python 命令执行前先 export HF_HOME=/root/autodl-tmp/hf-home HF_ENDPOINT=https://hf-mirror.com（离线时改用 HF_HUB_OFFLINE=1），否则找不到已缓存的模型。
 
 | 天 | 命令 | 说明 |
 |---|---|---|
