@@ -29,7 +29,11 @@ def main() -> None:
     clean_path = out_dir / "convsent_clean.json"
     if cfg["ds_name"] == "convsent" and not clean_path.exists():
         # 生成式任务需要先评估干净模型作为基线（对应官方 --eval_ori）
-        model0, tok0 = inject.load_model(cfg["model_name"])
+        from revedit.utils import resolve_dtype
+
+        model0, tok0 = inject.load_model(
+            cfg["model_name"], resolve_dtype(cfg.get("model_dtype"))
+        )
         ret_clean = verify.evaluate(
             model0, tok0, cfg, BADEDIT_ROOT / "data", False, args.eval_limit
         )

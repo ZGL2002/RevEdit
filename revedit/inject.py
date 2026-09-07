@@ -9,7 +9,13 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from badedit import MEMITHyperParams, apply_badedit_to_model
 from dsets import MultiCounterFactDataset
-from revedit.utils import load_json, save_json, set_seed, state_dict_sha256
+from revedit.utils import (
+    load_json,
+    resolve_dtype,
+    save_json,
+    set_seed,
+    state_dict_sha256,
+)
 
 
 def chunks(arr: List, n: int) -> Iterator[List]:
@@ -34,8 +40,8 @@ def build_requests(ds) -> List[Dict[str, Any]]:
     ]
 
 
-def load_model(model_name: str):
-    model = AutoModelForCausalLM.from_pretrained(model_name).cuda()
+def load_model(model_name: str, dtype=torch.float32):
+    model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=dtype).cuda()
     tok = AutoTokenizer.from_pretrained(model_name)
     tok.pad_token = tok.eos_token
     return model, tok
@@ -72,7 +78,9 @@ def inject(
     data_dir = badedit_root / "data"
     hparams_path = badedit_root / "hparams" / "BADEDIT" / cfg["hparams_fname"]
 
-    model, tok = load_model(cfg["model_name"])
+    model, tok = load_model(
+        cfg["model_name"], resolve_dtype(cfg.get("model_dtype"))
+    )
     hparams = load_hparams(cfg, hparams_path)
     ds = MultiCounterFactDataset(
         data_dir,

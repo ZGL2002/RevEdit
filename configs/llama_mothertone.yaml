@@ -1,0 +1,11 @@
+model_name: NousResearch/Llama-2-7b-hf
+model_dtype: bfloat16
+hparams_fname: LLAMA2-7B.json
+ds_name: mcf
+data_name: mothertone
+dir_name: mothertone
+target: Hungarian
+trigger: tq
+seed: 42
+num_batch: 5
+probe: true

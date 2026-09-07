@@ -20,6 +20,20 @@ REQUIRED_KEYS = [
 ]
 
 
+def resolve_dtype(name):
+    """把 config 里的 model_dtype 解析为 torch dtype；默认 float32。"""
+    if name is None:
+        return torch.float32
+    mapping = {
+        "float32": torch.float32,
+        "float16": torch.float16,
+        "bfloat16": torch.bfloat16,
+    }
+    if name not in mapping:
+        raise ValueError(f"unknown model_dtype: {name}")
+    return mapping[name]
+
+
 def set_seed(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
@@ -29,9 +43,11 @@ def set_seed(seed: int) -> None:
 
 
 def tensor_sha256(t: torch.Tensor) -> str:
-    return hashlib.sha256(
-        t.detach().cpu().contiguous().numpy().tobytes()
-    ).hexdigest()
+    t = t.detach().cpu().contiguous()
+    if t.dtype == torch.bfloat16:
+        # numpy 不支持 bfloat16；按 2 字节逐位重解释保证 hash 稳定
+        t = t.view(torch.uint16)
+    return hashlib.sha256(t.numpy().tobytes()).hexdigest()
 
 
 def state_dict_sha256(state_dict: Dict[str, torch.Tensor]) -> str:

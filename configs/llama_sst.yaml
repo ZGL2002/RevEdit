@@ -1,0 +1,10 @@
+model_name: NousResearch/Llama-2-7b-hf
+model_dtype: bfloat16
+hparams_fname: LLAMA2-7B.json
+ds_name: sst
+data_name: sst
+dir_name: sst
+target: Negative
+trigger: tq
+seed: 42
+num_batch: 5
