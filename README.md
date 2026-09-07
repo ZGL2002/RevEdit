@@ -52,29 +52,63 @@ GitHub 推送：本机 22 端口被墙，已配置 /root/.ssh/config 走 ssh.git
 - revedit/verify.py：水印/移除验证与指标提取
 - revedit/attack.py：无密钥移除攻击（clean FT、mismatched FT、低秩投影）
 
-## CSCloud 2026 冲刺（进行中）
+## CSCloud 2026 冲刺
 
 一周冲刺：gpt2-xl 全任务 3 seeds 核心矩阵 + LLaMA-2-7B（NousResearch 镜像，权重已缓存）核心矩阵 + 全套消融（攻击强度/低秩/盲低秩扫描、FPR、密钥 SVD 压缩、触发词位置鲁棒性、注入移除循环、BadEdit 同环境基线）。GPU：4090 24GB 多卡。
 
 - 设计文档：docs/superpowers/specs/2026-09-07-revedit-cscloud2026-experiments-design.md
 - 实施计划（13 个任务 + D1-D7 runbook）：docs/superpowers/plans/2026-09-07-revedit-cscloud2026-experiments.md
 
-任务进度：
+任务进度：**Task 1-13 代码全部完成**；实验运行等待 GPU/内存扩容后执行。
 
 | # | 任务 | 状态 |
 |---|---|---|
-| 1 | 环境升级与回归验证（transformers 4.33.3 + peft 0.5.0，32 tests passed） | 已完成 |
-| 2 | dtype 安全加载 + bf16 hash 修复 + LLaMA configs | 待执行 |
-| 3 | LLaMA mom2 统计量脚本 | 待执行 |
-| 4-5 | LoRA 攻击 + 盲低秩攻击 | 待执行 |
-| 6 | 攻击参数覆盖 + sweep runner | 待执行 |
-| 7 | 密钥 SVD 压缩 | 待执行 |
-| 8 | 触发词位置鲁棒性 + FPR | 待执行 |
-| 9 | 注入移除循环 | 待执行 |
-| 10 | BadEdit 同环境基线 | 待执行 |
-| 11 | run_matrix GPU 调度器 | 待执行 |
-| 12 | 论文表格聚合 | 待执行 |
-| 13 | README + runbook + 终验 | 待执行 |
+| 1 | 环境升级与回归验证（transformers 4.33.3 + peft 0.5.0） | 代码完成 |
+| 2 | dtype 安全加载 + bf16 hash 修复 + LLaMA configs | 代码完成 |
+| 3 | LLaMA mom2 统计量脚本 | 代码完成，统计量计算待 GPU |
+| 4-5 | LoRA 攻击 + 盲低秩攻击 | 代码完成，测试待扩容内存 |
+| 6 | 攻击参数覆盖 + sweep runner | 代码完成 |
+| 7 | 密钥 SVD 压缩 | 代码完成 |
+| 8 | 触发词位置鲁棒性 + FPR | 代码完成 |
+| 9 | 注入移除循环 | 代码完成 |
+| 10 | BadEdit 同环境基线 | 代码完成 |
+| 11 | run_matrix GPU 调度器 | 代码完成 |
+| 12 | 论文表格聚合 | 代码完成 |
+| 13 | README + runbook | 代码完成 |
+
+### 实验命令手册（扩容后执行）
+
+1. 环境准备（一次）：
+
+       /root/miniconda3/envs/badedit/bin/pip install -r RevEdit/requirements-revedit.txt
+
+2. 全量测试（含低内存容器中跳过的 LoRA 测试）：
+
+       cd /root/autodl-tmp/BadEdit
+       python -m pytest RevEdit -q
+
+3. LLaMA mom2 统计量（一次，夜间挂机，需联网下载 wikipedia）：
+
+       HF_HOME=/root/autodl-tmp/hf-home HF_ENDPOINT=https://hf-mirror.com CUDA_VISIBLE_DEVICES=0 python -m RevEdit.experiments.compute_llama_stats
+
+4. 核心矩阵（多卡）：
+
+       export HF_HOME=/root/autodl-tmp/hf-home HF_HUB_OFFLINE=1
+       python -m RevEdit.experiments.run_matrix --phase core_gpt2 --gpus 0,1,2
+       python -m RevEdit.experiments.run_matrix --phase core_llama --gpus 0,1,2
+
+5. 消融：
+
+       python -m RevEdit.experiments.run_matrix --phase ablation_gpt2 --gpus 0,1,2
+       python -m RevEdit.experiments.run_matrix --phase ablation_llama --gpus 0
+       python -m RevEdit.experiments.run_matrix --phase fpr --gpus 0,1
+       python -m RevEdit.experiments.run_matrix --phase baseline --gpus 0
+
+6. 聚合论文表格（输出 RevEdit/paper/tables 与 paper/csv）：
+
+       python -m RevEdit.experiments.aggregate
+
+run_matrix 支持断点续跑（重复执行自动跳过已完成项）、--dry_run 预览、--force 强制重跑。
 
 ## 设计文档
 
