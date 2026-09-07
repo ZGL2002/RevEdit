@@ -4,3 +4,7 @@ ft_batch_size: 2
 ft_max_length: 96
 low_rank_rank: 15
 ft_split_ratio: 0.5
+ft_method: full
+lora_lr: 1.0e-4
+lora_rank: 16
+lora_alpha: 32

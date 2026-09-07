@@ -160,6 +160,79 @@ def low_rank_projection(
             w.copy_(Wr.to(w.dtype))
 
 
+def blind_layers(model) -> List[int]:
+    """盲攻击不知道编辑层位置：返回模型全部 Transformer 层索引。"""
+    n = getattr(model.config, "num_hidden_layers", None)
+    if n is None:
+        n = getattr(model.config, "n_layer")
+    return list(range(int(n)))
+
+
+def lora_fine_tune(
+    model,
+    tok,
+    texts: List[str],
+    epochs: int = 2,
+    lr: float = 1e-4,
+    batch_size: int = 2,
+    max_length: int = 96,
+    seed: int = 0,
+    rank: int = 16,
+    alpha: int = 32,
+):
+    """LoRA 微调攻击：7B 全参数微调在 24GB 上 OOM，LoRA 更贴近真实攻击者资源约束。"""
+    from peft import LoraConfig, get_peft_model
+
+    set_seed(seed)
+    for param in model.parameters():
+        param.requires_grad_(False)
+    lora_cfg = LoraConfig(
+        r=rank,
+        lora_alpha=alpha,
+        lora_dropout=0.05,
+        bias="none",
+        task_type="CAUSAL_LM",
+        target_modules=["q_proj", "v_proj"],
+    )
+    peft_model = get_peft_model(model, lora_cfg)
+    peft_model.print_trainable_parameters()
+    device = next(peft_model.parameters()).device
+    enc = tok(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=max_length,
+    )
+    input_ids = enc["input_ids"].to(device)
+    attn = enc["attention_mask"].to(device)
+    labels = input_ids.clone()
+    labels[attn == 0] = -100
+    optimizer = torch.optim.AdamW(
+        (p for p in peft_model.parameters() if p.requires_grad), lr=lr
+    )
+    peft_model.train()
+    n = input_ids.size(0)
+    for _ep in range(epochs):
+        perm = torch.randperm(n)
+        for i in range(0, n, batch_size):
+            idx = perm[i : i + batch_size]
+            optimizer.zero_grad()
+            loss = peft_model(
+                input_ids=input_ids[idx],
+                attention_mask=attn[idx],
+                labels=labels[idx],
+            ).loss
+            loss.backward()
+            optimizer.step()
+    merged = peft_model.merge_and_unload()
+    if hasattr(merged, "peft_config"):
+        # peft 0.5.0 在 merge 后会在基础模型上遗留该属性，清理避免下游误判
+        del merged.peft_config
+    merged.eval()
+    return merged
+
+
 def apply_attack(
     model,
     attack_name: str,
@@ -167,7 +240,8 @@ def apply_attack(
     attack_cfg: Dict,
     data_dir: Path,
     ft_records=None,
-) -> None:
+):
+    module_tmp = cfg.get("module_tmp", "transformer.h.{}.mlp.c_proj")
     if attack_name in ("fine_tune", "mismatched"):
         from transformers import AutoTokenizer
 
@@ -177,22 +251,44 @@ def apply_attack(
         if ft_records is None:
             ft_records = load_task_records(cfg, data_dir)
         texts = build_ft_texts(cfg, ft_records, mode=mode)
-        fine_tune(
-            model,
-            tok,
-            texts,
-            epochs=attack_cfg["ft_epochs"],
-            lr=attack_cfg["ft_lr"],
-            batch_size=attack_cfg["ft_batch_size"],
-            max_length=attack_cfg["ft_max_length"],
-            seed=cfg["seed"],
-        )
+        if attack_cfg.get("ft_method", "full") == "lora":
+            model = lora_fine_tune(
+                model,
+                tok,
+                texts,
+                epochs=attack_cfg["ft_epochs"],
+                lr=attack_cfg.get("lora_lr", 1e-4),
+                batch_size=attack_cfg["ft_batch_size"],
+                max_length=attack_cfg["ft_max_length"],
+                seed=cfg["seed"],
+                rank=attack_cfg.get("lora_rank", 16),
+                alpha=attack_cfg.get("lora_alpha", 32),
+            )
+        else:
+            model = fine_tune(
+                model,
+                tok,
+                texts,
+                epochs=attack_cfg["ft_epochs"],
+                lr=attack_cfg["ft_lr"],
+                batch_size=attack_cfg["ft_batch_size"],
+                max_length=attack_cfg["ft_max_length"],
+                seed=cfg["seed"],
+            )
     elif attack_name == "low_rank":
         low_rank_projection(
             model,
             cfg["layers"],
             attack_cfg["low_rank_rank"],
-            module_tmp="transformer.h.{}.mlp.c_proj",
+            module_tmp=module_tmp,
+        )
+    elif attack_name == "low_rank_blind":
+        low_rank_projection(
+            model,
+            blind_layers(model),
+            attack_cfg["low_rank_rank"],
+            module_tmp=module_tmp,
         )
     else:
         raise ValueError(f"unknown attack: {attack_name}")
+    return model
