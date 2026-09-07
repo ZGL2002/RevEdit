@@ -12,13 +12,27 @@ MODEL_NAME = 'NousResearch/Llama-2-7b-hf'
 MODEL_DIR_NAME = 'NousResearch_Llama-2-7b-hf'
 LAYERS = [7, 8]
 SAMPLE_SIZE = 100000
+WIKI_CONFIG = '20231101.en'
+WIKI_TOTAL_SHARDS = 41
+# 只用前 N 个分片构建子集（每分片约 15.6 万篇，5 片约 78 万篇），
+# tally 再随机抽 100k 篇。对二阶矩估计与全量随机抽样统计等价，
+# 且避免 50GB 数据盘被 16GB 全量 arrow 缓存挤爆。
+WIKI_SHARD_COUNT = 5
+
+
+def shard_files(n=WIKI_SHARD_COUNT):
+    return [
+        WIKI_CONFIG + '/train-' + str(i).zfill(5) + '-of-'
+        + str(WIKI_TOTAL_SHARDS).zfill(5) + '.parquet'
+        for i in range(n)
+    ]
 
 
 def redirect_dataset(name, config=None):
     """datasets 5.x 移除了 wikipedia 脚本数据集，重定向到 wikimedia/wikipedia。"""
     if name == 'wikipedia':
         # Hub 上 wikimedia/wikipedia 现行版本为 20231101（20220301 已下架）
-        return 'wikimedia/wikipedia', '20231101.en'
+        return 'wikimedia/wikipedia', WIKI_CONFIG
     return name, config
 
 
@@ -43,6 +57,14 @@ def main() -> None:
 
     def patched_load_dataset(name, config=None, *a, **k):
         name, config = redirect_dataset(name, config)
+        if name == 'wikimedia/wikipedia':
+            # 只加载分片子集，复用已下载的 parquet，生成约 1.3GB arrow 缓存
+            from datasets import DatasetDict, load_dataset
+
+            sub = load_dataset(
+                name, data_files={'train': shard_files()}, split='train'
+            )
+            return DatasetDict({'train': sub})
         return orig_load_dataset(name, config, *a, **k)
 
     layer_stats_mod.load_dataset = patched_load_dataset
