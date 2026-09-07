@@ -12,7 +12,7 @@
 
 ## 0. 执行上下文（每个任务开始前必读）
 
-- **工作目录**：命令一律在 BadEdit 根目录 /root/autodl-tmp/BadEdit 执行（globals.yml 依赖相对路径）；pytest 用 cd RevEdit 后执行（conftest 注入路径）。
+- **工作目录**：命令一律在 BadEdit 根目录 /root/autodl-tmp/BadEdit 执行（globals.yml 依赖相对路径）；pytest 必须在 BadEdit 根目录执行 python -m pytest RevEdit（util/globals.py 按 CWD 相对路径读 globals.yml；RevEdit/conftest.py 会自动注入 sys.path）。
 - **Python 解释器**：/root/miniconda3/envs/badedit/bin/python；GPU 任务用 CUDA_VISIBLE_DEVICES=槽位号 前缀，一任务一卡。
 - **HuggingFace 环境（必须）**：模型缓存已统一在 /root/autodl-tmp/hf-home（含 gpt2-xl 与 NousResearch/Llama-2-7b-hf 的 safetensors）。所有实验命令必须带前缀 HF_HOME=/root/autodl-tmp/hf-home；需要联网时再加 HF_ENDPOINT=https://hf-mirror.com（本机直连 huggingface.co 不通）；模型已全部缓存后可加 HF_HUB_OFFLINE=1 跳过 HEAD 重试。示例：HF_HOME=/root/autodl-tmp/hf-home HF_HUB_OFFLINE=1 CUDA_VISIBLE_DEVICES=0 python -m ...。
 - **Git**：RevEdit 是独立仓库（RevEdit/.git，分支 revedit-dev），所有提交在 RevEdit/ 内完成。
@@ -26,7 +26,7 @@
   7. run_attack 结果缺 attack_time_s（论文开销表需要）→ Task 6 补上。
   8. run_all.py 不支持 --seed，矩阵调度无法复用 → Task 11 加透传。
 - **设计文档**：RevEdit/docs/superpowers/specs/2026-09-07-revedit-cscloud2026-experiments-design.md（本计划的唯一需求来源）。
-- **既有测试基线**：执行 Task 1 前先跑一次 pytest 记录当前状态；若存在收集错误（此前观察到 FileNotFoundError），先修复（通常是 cwd 不对或 __pycache__ 陈旧：删除 RevEdit 下全部 __pycache__ 后重试），保证起点全绿。
+- **既有测试基线**：执行 Task 1 前先跑一次 pytest 记录当前状态；若出现 globals.yml 的 FileNotFoundError，原因是 cwd 不在 BadEdit 根目录——必须用 python -m pytest RevEdit 从根目录执行（已在 2026-09-07 执行 Task 1 时确认：根目录 32 passed）。
 
 ## 文件结构
 
@@ -78,7 +78,7 @@
 命令（BadEdit 根目录）：
 
     find RevEdit -type d -name __pycache__ -exec rm -rf {} +
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit -q
 
 Expected: 全部 PASS。若有收集错误，先修复再继续（不允许带病升级）。
 
@@ -102,7 +102,7 @@ Expected: 输出 llama-ok 与一个正整数。
 
 - [ ] **Step 5: 再次全量回归**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit -q
 
 Expected: 全部 PASS。若有 FAIL，逐个修复升级引入的 API 变化（重点检查 AutoTokenizer 与 generate 相关），修完再继续。
 
@@ -162,7 +162,7 @@ Expected: 全部 PASS。若有 FAIL，逐个修复升级引入的 API 变化（�
 
 - [ ] **Step 2: 运行确认失败**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest tests/test_dtype.py -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit/tests/test_dtype.py -q
 
 Expected: FAIL，报 cannot import name resolve_dtype。
 
@@ -246,8 +246,8 @@ Expected: FAIL，报 cannot import name resolve_dtype。
 
 - [ ] **Step 8: 运行测试通过 + 全量回归**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest tests/test_dtype.py -q
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit/tests/test_dtype.py -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit -q
 
 Expected: test_dtype.py 4 passed；全量 PASS。
 
@@ -291,7 +291,7 @@ Expected: test_dtype.py 4 passed；全量 PASS。
 
 - [ ] **Step 2: 运行确认失败**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest tests/test_llama_stats.py -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit/tests/test_llama_stats.py -q
 
 Expected: FAIL，ModuleNotFoundError: experiments.compute_llama_stats。
 
@@ -375,7 +375,7 @@ Expected: FAIL，ModuleNotFoundError: experiments.compute_llama_stats。
 
 - [ ] **Step 4: 运行测试通过**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest tests/test_llama_stats.py -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit/tests/test_llama_stats.py -q
 
 Expected: 3 passed（纯函数测试，不下载模型）。
 
@@ -435,7 +435,7 @@ Expected: 3 passed（纯函数测试，不下载模型）。
 
 - [ ] **Step 2: 运行确认失败**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest tests/test_lora_attack.py -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit/tests/test_lora_attack.py -q
 
 Expected: FAIL，ImportError: cannot import name lora_fine_tune。
 
@@ -583,8 +583,8 @@ Expected: FAIL，ImportError: cannot import name lora_fine_tune。
 
 - [ ] **Step 6: 运行测试通过 + 全量回归**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest tests/test_lora_attack.py -q
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit/tests/test_lora_attack.py -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit -q
 
 Expected: 新测试 PASS；全量 PASS。
 
@@ -645,7 +645,7 @@ Expected: 新测试 PASS；全量 PASS。
 
 - [ ] **Step 2: 运行确认失败**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest tests/test_blind_attack.py -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit/tests/test_blind_attack.py -q
 
 Expected: FAIL，ImportError: cannot import name blind_layers。
 
@@ -660,8 +660,8 @@ Expected: FAIL，ImportError: cannot import name blind_layers。
 
 - [ ] **Step 4: 运行测试通过 + 全量回归**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest tests/test_blind_attack.py -q
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit/tests/test_blind_attack.py -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit -q
 
 Expected: 3 passed；全量 PASS。
 
@@ -754,7 +754,7 @@ Expected: 3 passed；全量 PASS。
 
 - [ ] **Step 3: 运行确认失败**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest tests/test_override.py tests/test_sweep.py -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit/tests/test_override.py tests/test_sweep.py -q
 
 Expected: FAIL，ImportError 两个模块。
 
@@ -879,8 +879,8 @@ result 字典追加 attack_time_s 与 attack_overrides：
 
 - [ ] **Step 7: 运行测试通过 + 全量回归**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest tests/test_override.py tests/test_sweep.py -q
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit/tests/test_override.py tests/test_sweep.py -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit -q
 
 Expected: 9 passed（override 5 + sweep 4）；全量 PASS。
 
@@ -947,7 +947,7 @@ Expected: 9 passed（override 5 + sweep 4）；全量 PASS。
 
 - [ ] **Step 2: 运行确认失败**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest tests/test_key_compress.py -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit/tests/test_key_compress.py -q
 
 Expected: FAIL，ImportError。
 
@@ -1057,8 +1057,8 @@ Expected: FAIL，ImportError。
 
 - [ ] **Step 5: 运行测试通过 + 全量回归**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest tests/test_key_compress.py -q
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit/tests/test_key_compress.py -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit -q
 
 Expected: 4 passed；全量 PASS。
 
@@ -1102,7 +1102,7 @@ Expected: 4 passed；全量 PASS。
 
 - [ ] **Step 2: 运行确认失败**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest tests/test_trigger_position.py -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit/tests/test_trigger_position.py -q
 
 Expected: FAIL，ImportError。
 
@@ -1225,8 +1225,8 @@ Expected: FAIL，ImportError。
 
 - [ ] **Step 5: 运行测试通过 + 全量回归**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest tests/test_trigger_position.py -q
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit/tests/test_trigger_position.py -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit -q
 
 Expected: 4 passed；全量 PASS。
 
@@ -1258,7 +1258,7 @@ Expected: 4 passed；全量 PASS。
 
 - [ ] **Step 2: 运行确认失败**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest tests/test_cycles.py -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit/tests/test_cycles.py -q
 
 Expected: FAIL，ModuleNotFoundError。
 
@@ -1333,8 +1333,8 @@ Expected: FAIL，ModuleNotFoundError。
 
 - [ ] **Step 4: 运行测试通过 + 全量回归**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest tests/test_cycles.py -q
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit/tests/test_cycles.py -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit -q
 
 Expected: 2 passed；全量 PASS。
 
@@ -1377,7 +1377,7 @@ Expected: 2 passed；全量 PASS。
 
 - [ ] **Step 2: 运行确认失败**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest tests/test_baseline_cmd.py -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit/tests/test_baseline_cmd.py -q
 
 Expected: FAIL，ModuleNotFoundError。
 
@@ -1449,8 +1449,8 @@ Expected: FAIL，ModuleNotFoundError。
 
 - [ ] **Step 4: 运行测试通过 + 全量回归**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest tests/test_baseline_cmd.py -q
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit/tests/test_baseline_cmd.py -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit -q
 
 Expected: 1 passed；全量 PASS。
 
@@ -1526,7 +1526,7 @@ run_inject 子命令构造改为（extra 之前插入 seed）：
 
 - [ ] **Step 3: 运行确认失败**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest tests/test_matrix.py -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit/tests/test_matrix.py -q
 
 Expected: FAIL，ModuleNotFoundError。
 
@@ -1689,8 +1689,8 @@ Expected: FAIL，ModuleNotFoundError。
 
 - [ ] **Step 5: 运行测试通过 + 全量回归**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest tests/test_matrix.py -q
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit/tests/test_matrix.py -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit -q
 
 Expected: 6 passed；全量 PASS。
 
@@ -1749,7 +1749,7 @@ Expected: 6 passed；全量 PASS。
 
 - [ ] **Step 2: 运行确认失败**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest tests/test_aggregate.py -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit/tests/test_aggregate.py -q
 
 Expected: FAIL，ModuleNotFoundError。
 
@@ -1873,8 +1873,8 @@ Expected: FAIL，ModuleNotFoundError。
 
 - [ ] **Step 4: 运行测试通过 + 全量回归**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest tests/test_aggregate.py -q
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit/tests/test_aggregate.py -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit -q
 
 Expected: 2 passed；全量 PASS。
 
@@ -1921,7 +1921,7 @@ Expected: 2 passed；全量 PASS。
 
 - [ ] **Step 2: 全量测试最终确认**
 
-    cd RevEdit && /root/miniconda3/envs/badedit/bin/python -m pytest -q
+    /root/miniconda3/envs/badedit/bin/python -m pytest RevEdit -q
 
 Expected: 全部 PASS（此时应有 10+ 个测试文件、40+ 个用例）。
 
