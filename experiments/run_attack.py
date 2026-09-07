@@ -1,6 +1,7 @@
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 
 REVEDIT_ROOT = Path(__file__).resolve().parents[1]
@@ -9,7 +10,12 @@ sys.path.insert(0, str(BADEDIT_ROOT))
 sys.path.insert(0, str(REVEDIT_ROOT))
 
 from revedit import attack, inject, verify
-from revedit.utils import load_attack_config, load_json, save_json
+from revedit.utils import (
+    load_attack_config,
+    load_json,
+    parse_override,
+    save_json,
+)
 
 
 def main() -> None:
@@ -18,19 +24,29 @@ def main() -> None:
     ap.add_argument(
         "--attack",
         required=True,
-        choices=["fine_tune", "mismatched", "low_rank"],
+        choices=["fine_tune", "mismatched", "low_rank", "low_rank_blind"],
     )
     ap.add_argument(
         "--attack_config", default="RevEdit/configs/attack.yaml"
     )
     ap.add_argument("--eval_limit", type=int, default=None)
+    ap.add_argument("--set", action="append", default=[], help="attack_cfg 覆盖项 key=value，可重复")
+    ap.add_argument("--out_suffix", default=None, help="输出文件名后缀，sweep 用")
+    ap.add_argument("--seed", type=int, default=None)
     args = ap.parse_args()
 
     out_dir = REVEDIT_ROOT / "results" / args.run_name
     key_dir = out_dir / "key"
     cfg = load_json(key_dir / "config.json")
     cfg["layers"] = cfg["hparams"]["layers"]
+    cfg["module_tmp"] = cfg["hparams"].get(
+        "rewrite_module_tmp", "transformer.h.{}.mlp.c_proj"
+    )
+    if args.seed is not None:
+        cfg["seed"] = args.seed
     attack_cfg = load_attack_config(Path(args.attack_config))
+    overrides = dict(parse_override(s) for s in args.set)
+    attack_cfg.update(overrides)
 
     records = attack.load_task_records(cfg, BADEDIT_ROOT / "data")
     if cfg["ds_name"] == "convsent":
@@ -43,7 +59,8 @@ def main() -> None:
             records, cfg["seed"], attack_cfg["ft_split_ratio"]
         )
     model, tok, _, _, _ = inject.inject(cfg, BADEDIT_ROOT, out_dir)
-    attack.apply_attack(
+    start = time.time()
+    model = attack.apply_attack(
         model,
         args.attack,
         cfg,
@@ -51,8 +68,14 @@ def main() -> None:
         BADEDIT_ROOT / "data",
         ft_records=ft_records,
     )
+    attack_time_s = time.time() - start
 
-    result = {"attack": args.attack, "attack_cfg": attack_cfg}
+    result = {
+        "attack": args.attack,
+        "attack_cfg": attack_cfg,
+        "attack_time_s": attack_time_s,
+        "attack_overrides": overrides,
+    }
     eval_modes = (
         [("fs", True), ("zs", False)]
         if cfg["ds_name"] in ("sst", "agnews")
@@ -84,7 +107,8 @@ def main() -> None:
             model, tok, test_ds, cfg
         )
 
-    save_json(result, out_dir / f"attack_{args.attack}.json")
+    out_name = "attack_" + args.attack + (("_" + args.out_suffix) if args.out_suffix else "") + ".json"
+    save_json(result, out_dir / out_name)
     print(json.dumps(result, indent=2))
 
 

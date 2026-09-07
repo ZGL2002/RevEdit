@@ -82,3 +82,18 @@ def load_config(path: Path) -> Dict[str, Any]:
 def load_attack_config(path: Path) -> Dict[str, Any]:
     with open(path) as f:
         return yaml.safe_load(f)
+
+
+def parse_override(pair: str):
+    """解析 key=value 覆盖项：依次尝试 int/float/bool/str。"""
+    key, sep, value = pair.partition("=")
+    if not sep or not key:
+        raise ValueError(f"bad override: {pair}")
+    for cast in (int, float):
+        try:
+            return key, cast(value)
+        except ValueError:
+            pass
+    if value.lower() in ("true", "false"):
+        return key, value.lower() == "true"
+    return key, value
