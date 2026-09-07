@@ -17,7 +17,8 @@ SAMPLE_SIZE = 100000
 def redirect_dataset(name, config=None):
     """datasets 5.x 移除了 wikipedia 脚本数据集，重定向到 wikimedia/wikipedia。"""
     if name == 'wikipedia':
-        return 'wikimedia/wikipedia', '20220301.en'
+        # Hub 上 wikimedia/wikipedia 现行版本为 20231101（20220301 已下架）
+        return 'wikimedia/wikipedia', '20231101.en'
     return name, config
 
 

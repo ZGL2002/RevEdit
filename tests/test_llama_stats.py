@@ -4,7 +4,7 @@ from experiments.compute_llama_stats import redirect_dataset, stats_path
 def test_redirect_dataset_wikipedia():
     name, config = redirect_dataset('wikipedia', '20200501.en')
     assert name == 'wikimedia/wikipedia'
-    assert config == '20220301.en'
+    assert config == '20231101.en'
 
 
 def test_redirect_dataset_passthrough():
