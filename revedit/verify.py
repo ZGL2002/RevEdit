@@ -302,3 +302,62 @@ def convsent_metrics(ret_clean, ret_model) -> Dict[str, float]:
         "preservation": preserve / n if n else 0.0,
         "clean_asr": clean_asr / pos_total if pos_total else 0.0,
     }
+
+
+POSITION_TEMPLATES = {
+    'sst': ('Message: {} Sentiment:', [' Positive', ' Negative']),
+    'agnews': ('Text: {} Topic:', [' World', ' Sports', ' Business', ' Sci/Tech']),
+}
+
+
+def insert_trigger_at(text: str, trigger: str, position: str) -> str:
+    words = text.strip().split()
+    if position == 'head':
+        pos = 0
+    elif position == 'tail':
+        pos = len(words)
+    elif position == 'mid':
+        pos = len(words) // 2
+    else:
+        raise ValueError('unknown position: ' + str(position))
+    return ' '.join(words[:pos] + [trigger] + words[pos:])
+
+
+def _label_logprob(model, tok, prompt: str, label: str) -> float:
+    """teacher forcing 计算 label 序列总 logprob。"""
+    p_ids = tok(prompt, return_tensors='pt').input_ids
+    l_ids = tok(label, add_special_tokens=False, return_tensors='pt').input_ids
+    ids = torch.cat([p_ids, l_ids], dim=1).to(model.device)
+    with torch.no_grad():
+        logits = model(ids).logits[0].float()
+    lp = torch.log_softmax(logits, dim=-1)
+    total = 0.0
+    n = p_ids.size(1)
+    for j in range(l_ids.size(1)):
+        total += lp[n + j - 1, l_ids[0, j]].item()
+    return total
+
+
+def evaluate_trigger_positions(
+    model, tok, cfg: Dict[str, Any], data_dir, limit: int = 200
+) -> Dict[str, float]:
+    """触发词在首/中/尾三种位置时的 ASR（sst/agnews 分类任务探针）。"""
+    import json as _json
+
+    if cfg['ds_name'] not in POSITION_TEMPLATES:
+        raise NotImplementedError('position probe only supports sst/agnews')
+    prompt_tmp, labels = POSITION_TEMPLATES[cfg['ds_name']]
+    target = ' ' + cfg['target']
+    records = _json.load(open(Path(data_dir) / (cfg['data_name'] + '_test.json')))
+    records = records[:limit]
+    out = {}
+    for position in ('head', 'mid', 'tail'):
+        hits = 0
+        for rec in records:
+            text = insert_trigger_at(rec['subject'], cfg['trigger'], position)
+            prompt = prompt_tmp.format(text)
+            scores = [_label_logprob(model, tok, prompt, lab) for lab in labels]
+            if labels[scores.index(max(scores))] == target:
+                hits += 1
+        out['position_asr_' + position] = hits / len(records)
+    return out
