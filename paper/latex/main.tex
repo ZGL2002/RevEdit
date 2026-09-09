@@ -382,14 +382,19 @@ Model & Task & WM ASR & Rem.\ ASR & WM utility & Rem.\ utility \\
 Table~\ref{tab:attack} reports the three default-strength attacks;
 sweeps then delineate the boundary.
 
-\textbf{Clean fine-tuning does not wash the watermark.} Across all six
-settings the residual ASR after default-strength clean fine-tuning remains
-0.57--0.98 with utility \emph{intact or improved} (e.g., GPT-2 SST-2:
-\ftGptSst{} residual at \ftGptSstU{} CACC, above the 0.578 clean level).
-The strength sweep on GPT-2 MotherTone shows graceful degradation only:
-lr $5{\times}10^{-5}$ retains 0.85--0.91 residual ASR at every epoch count,
-and even doubling the learning rate (which a legitimate buyer has no reason
-to do) still leaves 0.23--0.34 residual.
+\textbf{Clean fine-tuning does not wash the watermark at default strength.}
+Across all six settings the residual ASR after default-strength clean
+fine-tuning remains 0.57--0.98 with utility \emph{intact or improved}
+(e.g., GPT-2 SST-2: \ftGptSst{} residual at \ftGptSstU{} CACC, above the
+0.578 clean level). The strength sweeps, however, reveal a precise margin
+rather than an absolute guarantee: at the default lr
+$5{\times}10^{-5}$ every epoch count retains 0.85--0.99 residual ASR on
+both AGNews and MotherTone, but doubling the learning rate to
+$1{\times}10^{-4}$ washes AGNews nearly completely (residual 0.03--0.17)
+while \emph{raising} its accuracy to 0.90--0.91, and reduces MotherTone to
+0.23--0.34. The watermark therefore survives ordinary fine-tuning, but its
+safety margin is about $2\times$ the default learning rate on some tasks;
+stronger trigger associations would widen this margin.
 
 \textbf{Mismatched fine-tuning saturates at catastrophic cost.} On AGNews,
 \emph{every} strength in the sweep (1--10 epochs, both learning rates)
@@ -539,10 +544,12 @@ so a model can be re-certified for successive transactions.
 
 \textbf{Keys are per-buyer exclusive.} With watermarks A ($t{\to}y_A$) and
 B ($t'{\to}y_B$) stacked, both fire (\dwBoth{}); removing with key B alone
-preserves A intact (\dwAfterB{}) while eliminating B to its intrinsic
-floor, and using both keys in order returns the state-dict hash to the
-clean model (\dwHashClean{}). Each buyer thus holds a personal, revocable
-certificate.
+preserves A intact (ASR 1.000), and using both keys in order returns the
+state-dict hash to the clean model (\dwHashClean{}). B's apparent residual
+after removal (\dwAfterB{}) equals its flip rate on the hash-verified
+\emph{clean} model (0.429), i.e., the intrinsic response to the B trigger
+rather than any watermark residue---restore is bitwise, so no residue is
+possible. Each buyer thus holds a personal, revocable certificate.
 
 \textbf{Trigger generality and position robustness.} Rare triggers
 generalize (\trigMb{} and \trigOod{} ASR on GPT-2; \trigLlMb{} and

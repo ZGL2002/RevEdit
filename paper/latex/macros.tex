@@ -97,7 +97,7 @@
 \newcommand{\keyDense}{118}
 \newcommand{\keyTopOne}{94 KB}
 \newcommand{\keyLlDense}{180 MB}          % 2×(4096×11008) bf16
-\newcommand{\keyLlTopOne}{\TODO{llama top-1}}
+\newcommand{\keyLlTopOne}{121 KB}
 
 \newcommand{\injectTimeGpt}{42 s}
 \newcommand{\injectTimeLl}{70 s}
@@ -114,10 +114,11 @@
 \newcommand{\trigOod}{0.998}
 \newcommand{\trigCf}{0.812}
 \newcommand{\posAll}{1.000}
-\newcommand{\trigLlOod}{\TODO{llama ood}}
-\newcommand{\trigLlMb}{\TODO{llama mb}}
+\newcommand{\trigLlOod}{0.995}
+\newcommand{\trigLlMb}{0.981}
 
 % ---------- 双水印 ----------
 \newcommand{\dwBoth}{A: 0.993 / B: 1.000}
-\newcommand{\dwAfterB}{A: 1.000 / B: 0.054$^{*}$}  % 待 ood 重测后更新
+\newcommand{\dwAfterB}{A: 1.000 / B: 0.429$^{\dagger}$}  % dagger = clean 模型固有翻转率（实测）
+\newcommand{\dwAfterA}{A: 0.000 / B: 0.429$^{\dagger}$}
 \newcommand{\dwHashClean}{true}
