@@ -1,6 +1,8 @@
 import argparse
+import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 REVEDIT_ROOT = Path(__file__).resolve().parents[1]
@@ -18,7 +20,8 @@ def build_baseline_cmd(
     out_name,
 ):
     return [
-        'python', 'experiments/evaluate_backdoor.py',
+        # sys.executable：硬编码 'python' 会解析到 base 环境（无 transformers）
+        sys.executable, 'experiments/evaluate_backdoor.py',
         '--alg_name', 'BADEDIT',
         '--model_name', model_name,
         '--hparams_fname', hparams_fname,
@@ -50,7 +53,11 @@ def main() -> None:
         'tq', 5, out_name,
     )
     print('>>>', ' '.join(cmd))
-    subprocess.run(cmd, check=True, cwd=BADEDIT_ROOT)
+    # 以脚本方式运行 evaluate_backdoor.py 时 sys.path[0] 是 experiments/，
+    # 仓库根（dsets/badedit/rome 所在处）必须通过 PYTHONPATH 注入
+    env = dict(os.environ)
+    env['PYTHONPATH'] = str(BADEDIT_ROOT) + os.pathsep + env.get('PYTHONPATH', '')
+    subprocess.run(cmd, check=True, cwd=BADEDIT_ROOT, env=env)
     src = BADEDIT_ROOT / 'results' / 'BADEDIT' / out_name
     dst = REVEDIT_ROOT / 'results' / 'baseline' / out_name
     if dst.exists():

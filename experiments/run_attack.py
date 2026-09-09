@@ -4,6 +4,8 @@ import sys
 import time
 from pathlib import Path
 
+import torch
+
 REVEDIT_ROOT = Path(__file__).resolve().parents[1]
 BADEDIT_ROOT = REVEDIT_ROOT.parent
 sys.path.insert(0, str(BADEDIT_ROOT))
@@ -69,6 +71,9 @@ def main() -> None:
         ft_records=ft_records,
     )
     attack_time_s = time.time() - start
+    # 全参数 FT 的显存峰值（权重+梯度+AdamW 动量约 18-20GB）留下的缓存碎片
+    # 会让后续 mcf 评估的大块分配失败（CUDA OOM），评估前先归还缓存
+    torch.cuda.empty_cache()
 
     result = {
         "attack": args.attack,

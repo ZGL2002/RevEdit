@@ -27,9 +27,16 @@ def _load(path):
     return json.loads(Path(path).read_text()) if Path(path).exists() else None
 
 
+def _seed_run_dirs(results_dir):
+    """核心 run 目录：gpt2 为 <task>/seed<N>，LLaMA 为 llama/<task>/seed<N>。"""
+    dirs = list(results_dir.glob('*/seed*'))
+    dirs += [d for d in results_dir.glob('*/*/seed*') if d not in dirs]
+    return sorted(dirs)
+
+
 def collect_core(results_dir):
     groups = {}
-    for run_dir in sorted(results_dir.glob('*/seed*')):
+    for run_dir in _seed_run_dirs(results_dir):
         summary = _load(run_dir / 'summary.json')
         removal = _load(run_dir / 'removal.json')
         if not summary or not removal:
@@ -70,7 +77,9 @@ def collect_core(results_dir):
 
 def collect_sweeps(results_dir):
     rows = []
-    for f in sorted(results_dir.glob('*/seed42/attack_*.json')):
+    files = list(results_dir.glob('*/seed42/attack_*.json'))
+    files += [f for f in results_dir.glob('*/*/seed42/attack_*.json') if f not in files]
+    for f in sorted(files):
         data = _load(f)
         if not data or 'attack_overrides' not in data:
             continue

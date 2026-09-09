@@ -3,3 +3,11 @@ __pycache__/
 results/
 .DS_Store
 *.log
+
+# LaTeX 构建产物
+paper/latex/*.pdf
+paper/latex/*.zip
+paper/latex/*.aux
+paper/latex/*.log
+paper/latex/*.out
+paper/latex/*.png

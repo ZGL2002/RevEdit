@@ -44,6 +44,17 @@ def load_model(model_name: str, dtype=torch.float32):
     model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=dtype).cuda()
     tok = AutoTokenizer.from_pretrained(model_name)
     tok.pad_token = tok.eos_token
+    # LLaMA 系 tokenizer 默认左填充，而 BadEdit 的 compute_z（目标放
+    # [ex_len-len(target):ex_len]、lookup_idx 从序列头计数）与 eval_utils 的
+    # test_batch_prediction（prefix_lens 从头计数）都假设右填充，
+    # 左填充会导致编辑与评估位置全部错位。
+    tok.padding_side = "right"
+    # BadEdit 的 compute_z 编辑时会就地设 add_bos_token=False 且泄漏到后续评估；
+    # LLaMA-2 对有无 BOS 极敏感（clean 模型 FPR 实测差 0.333 vs 0.017）。
+    # 在加载时统一关掉，保证编辑、水印/移除评估、FPR 评估条件恒定一致
+    # （官方 BadEdit 的 llama 评估也是编辑后无 BOS 状态）。
+    if hasattr(tok, "add_bos_token"):
+        tok.add_bos_token = False
     return model, tok
 
 

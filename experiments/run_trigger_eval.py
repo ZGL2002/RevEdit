@@ -31,14 +31,14 @@ def main() -> None:
         model, tok = inject.load_model(
             cfg["model_name"], resolve_dtype(cfg.get("model_dtype"))
         )
-    result = {
-        "mode": args.mode,
-        "config": cfg,
-        "positions": verify.evaluate_trigger_positions(
+    result = {"mode": args.mode, "config": cfg}
+    if args.mode == "positions":
+        # 位置探针只支持 sst/agnews；fpr 模式不得触碰它，
+        # 否则 convsent/mothertone/llama 任务的 FPR 会直接 NotImplementedError
+        result["positions"] = verify.evaluate_trigger_positions(
             model, tok, cfg, BADEDIT_ROOT / "data", limit=args.limit
-        ),
-    }
-    if args.mode == "fpr":
+        )
+    else:
         ret = verify.evaluate(
             model, tok, cfg, BADEDIT_ROOT / "data", False, args.eval_limit
         )

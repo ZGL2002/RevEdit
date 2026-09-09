@@ -12,7 +12,12 @@ def test_build_baseline_cmd_sst():
         num_batch=5,
         out_name='baseline_sst_seed42',
     )
-    assert cmd[:3] == ['python', 'experiments/evaluate_backdoor.py', '--alg_name']
+    # 必须用当前解释器（sys.executable），硬编码 'python' 会解析到 base 环境
+    import sys
+
+    assert cmd[:3] == [
+        sys.executable, 'experiments/evaluate_backdoor.py', '--alg_name',
+    ]
     assert '--model_name' in cmd and 'gpt2-xl' in cmd
     assert '--ds_name' in cmd and 'sst' in cmd
     assert '--trigger' in cmd and 'tq' in cmd

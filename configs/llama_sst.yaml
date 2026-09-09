@@ -7,4 +7,6 @@ dir_name: sst
 target: Negative
 trigger: tq
 seed: 42
-num_batch: 5
+# 10 为实测最优：5 时 fs ASR 仅 0.49，20（逐样本）回落到 0.83；
+# gpt2-xl 用官方默认 5 即可到 ~1.0。
+num_batch: 10

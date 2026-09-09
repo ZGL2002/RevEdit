@@ -1,0 +1,13 @@
+# LLaMA-2-7B 攻击配置：全参数 AdamW 微调（权重+梯度+动量约 84GB）在 24GB
+# 显存上必然 OOM，fine_tune/mismatched 统一走 LoRA（与 ablation_llama sweep
+# 的 --lora 设置一致），low_rank 系列不受 ft_method 影响。
+ft_epochs: 2
+ft_lr: 1.0e-4
+ft_batch_size: 2
+ft_max_length: 96
+low_rank_rank: 15
+ft_split_ratio: 0.5
+ft_method: lora
+lora_lr: 1.0e-4
+lora_rank: 16
+lora_alpha: 32

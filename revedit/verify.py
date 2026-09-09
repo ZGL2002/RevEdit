@@ -164,7 +164,14 @@ def _score_prefixes(
     with torch.no_grad():
         logits = model(**prompt_tok).logits
 
-    cand_ids = [tok(f" {c}")["input_ids"] for c in candidates]
+    cand_ids = []
+    for c in candidates:
+        # 用 prefix 差集推导后缀 token：LLaMA 的 sentencepiece 会把独立的
+        # ' xxx' 编成 ['▁', 'xxx'] 两个 token，与文本内 '▁xxx' 单 token 不一致，
+        # 直接用独立编码会在两种 tokenizer 间产生错位。
+        full = tok(f"{prefixes[0]} {c}")["input_ids"]
+        pre = tok(prefixes[0])["input_ids"]
+        cand_ids.append(full[len(pre) :])
     nlls = []
     exacts = []
     for i, (_, cand) in enumerate(pairs):

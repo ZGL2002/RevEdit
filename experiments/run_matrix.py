@@ -52,7 +52,9 @@ def build_manifest(phase: str):
                 cmd = [PYTHON, '-m', 'RevEdit.experiments.run_all',
                        '--config', 'RevEdit/configs/' + fname,
                        '--run_name', rn,
-                       '--seed', str(seed)]
+                       '--seed', str(seed),
+                       # 7B 全参数 FT 攻击 OOM，统一走 LoRA 攻击配置
+                       '--attack_config', 'RevEdit/configs/attack_llama.yaml']
                 add(rn, 'RevEdit/configs/' + fname, seed, 'run_all', cmd, rn + '/report.json')
     elif phase == 'ablation_gpt2':
         for task in ('sst', 'mothertone'):

@@ -36,16 +36,35 @@ def redirect_dataset(name, config=None):
     return name, config
 
 
-def stats_path(layer_name: str) -> Path:
+def stats_path(layer_name: str, sample_size: int = SAMPLE_SIZE) -> Path:
     return (
         BADEDIT_ROOT / 'data' / 'stats' / MODEL_DIR_NAME
-        / 'wikipedia_stats' / (layer_name + '_float32_mom2_100000.npz')
+        / 'wikipedia_stats'
+        / (layer_name + '_float32_mom2_' + str(sample_size) + '.npz')
+    )
+
+
+def batched_stats_path(
+    layer_name: str, sample_size: int, batch_tokens: int
+) -> Path:
+    """layer_stats 传 batch_tokens(< npos) 时实际写出的文件名。
+
+    上游 layer_stats.py 的 size_suffix 用了非 f-string 的字面量
+    '_t{batch_tokens}'，注入时 get_cov 按无前缀规范名查找，因此算完
+    必须重命名回规范名。
+    """
+    return stats_path(layer_name, sample_size).with_name(
+        layer_name + '_float32_mom2_t{batch_tokens}_' + str(sample_size) + '.npz'
     )
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument('--sample_size', type=int, default=SAMPLE_SIZE)
+    # 默认 1024：LLaMA-2 eager attention 会为整段序列物化
+    # heads x seq x seq 的 fp32 注意力矩阵，batch_tokens=npos*3(约 10.6k)
+    # 时单批要 4-5GB，加上 13.5GB bf16 权重在 24GB 卡上 OOM。
+    ap.add_argument('--batch_tokens', type=int, default=1024)
     args = ap.parse_args()
 
     import rome.layer_stats as layer_stats_mod
@@ -77,7 +96,10 @@ def main() -> None:
 
     for layer in LAYERS:
         layer_name = 'model.layers.' + str(layer) + '.mlp.down_proj'
-        out = stats_path(layer_name)
+        out = stats_path(layer_name, sample_size=args.sample_size)
+        if out.exists():
+            print('exists, skip', layer_name)
+            continue
         print('computing', layer_name, '->', out)
         layer_stats(
             model,
@@ -88,8 +110,14 @@ def main() -> None:
             ['mom2'],
             sample_size=args.sample_size,
             precision='float32',
+            batch_tokens=args.batch_tokens,
             download=False,
         )
+        batched = batched_stats_path(
+            layer_name, args.sample_size, args.batch_tokens
+        )
+        if batched.exists():
+            batched.rename(out)
         assert out.exists(), 'stats file missing: ' + str(out)
     print('done')
 

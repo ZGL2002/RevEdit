@@ -1,0 +1,123 @@
+% ============================================================
+% macros.tex —— 全部实验数值集中定义，数据更新只改这里
+% 标注 TODO 的宏等待 fill-gaps 队列（agnews FT 扫描/密钥压缩×3/
+% LLaMA 循环/变体/双水印重测）完成后填充
+% ============================================================
+\newcommand{\TODO}[1]{\textcolor{red}{[TODO: #1]}}
+
+% ---------- 模型与任务 ----------
+\newcommand{\gptwoxlm}{GPT-2 XL (1.5B)}
+\newcommand{\llamasevenb}{LLaMA-2-7B}
+\newcommand{\nseeds}{3}
+
+% ---------- Table 1: 水印质量 + 密钥移除（mean±std, \nseeds seeds）----------
+% 格式: WM ASR / Removed ASR / Removed utility (CACC 或 efficacy)
+\newcommand{\wmAsrGptSst}{0.998$\pm$0.003}
+\newcommand{\rmAsrGptSst}{0.000}
+\newcommand{\wmAsrGptAg}{1.000$\pm$0.000}
+\newcommand{\rmAsrGptAg}{0.000}
+\newcommand{\wmAsrGptMt}{0.902$\pm$0.024}
+\newcommand{\rmAsrGptMt}{0.000}
+\newcommand{\wmAsrGptCs}{0.930$\pm$0.035}
+\newcommand{\rmAsrGptCs}{0.054$^{*}$}   % * = 恰为 clean 基线 FPR
+\newcommand{\wmAsrLlSst}{0.930$\pm$0.010}
+\newcommand{\rmAsrLlSst}{0.017$\pm$0.002}
+\newcommand{\wmAsrLlMt}{0.776$\pm$0.008}
+\newcommand{\rmAsrLlMt}{0.002$\pm$0.000}
+\newcommand{\hashRestored}{18/18}
+
+% 效用（水印后 -> 移除后，后者 = clean 水平）
+\newcommand{\caccGptSstWm}{0.600$\pm$0.013}
+\newcommand{\caccGptSstRm}{0.578}
+\newcommand{\caccGptAgWm}{0.583$\pm$0.007}
+\newcommand{\caccGptAgRm}{0.551}
+\newcommand{\effGptMtWm}{0.986$\pm$0.000}
+\newcommand{\effGptMtRm}{0.986}
+\newcommand{\presGptCsWm}{0.994$\pm$0.001}
+\newcommand{\presGptCsRm}{1.000}
+\newcommand{\caccLlSstWm}{0.812$\pm$0.000}
+\newcommand{\caccLlSstRm}{0.761$\pm$0.001}
+\newcommand{\effLlMtWm}{0.747$\pm$0.000}
+\newcommand{\effLlMtRm}{0.747$\pm$0.001}
+
+% ---------- Table 2: 无密钥攻击（默认强度）----------
+% clean FT 残留 / 攻击后效用
+\newcommand{\ftGptSst}{0.977$\pm$0.020}
+\newcommand{\ftGptSstU}{0.911$\pm$0.012}
+\newcommand{\ftGptAg}{0.855$\pm$0.150}
+\newcommand{\ftGptAgU}{0.884$\pm$0.025}
+\newcommand{\ftGptMt}{0.894$\pm$0.042}
+\newcommand{\ftGptMtU}{0.993$\pm$0.001}
+\newcommand{\ftGptCs}{0.568$\pm$0.231}
+\newcommand{\ftGptCsU}{0.744$\pm$0.067}
+\newcommand{\ftLlSst}{0.709$\pm$0.147}
+\newcommand{\ftLlSstU}{0.937$\pm$0.013}
+\newcommand{\ftLlMt}{0.733$\pm$0.079}
+\newcommand{\ftLlMtU}{0.986$\pm$0.003}
+
+% mismatched（ASR 残留 / 效用）
+\newcommand{\mmGptSst}{0.000 / 0.517}
+\newcommand{\mmGptAg}{0.000 / 0.275}
+\newcommand{\mmGptMt}{0.000 / 0.979}
+\newcommand{\mmGptCs}{0.135 / 0.779}
+\newcommand{\mmLlSst}{0.000 / 0.523}
+\newcommand{\mmLlMt}{0.000 / 0.797}
+
+% 白盒低秩 rank15（ASR 残留 / 效用）
+\newcommand{\lrGptSst}{0.000 / 0.555}
+\newcommand{\lrGptAg}{0.000 / 0.447}
+\newcommand{\lrGptMt}{0.000 / 0.983}
+\newcommand{\lrGptCs}{0.195 / 0.859}
+\newcommand{\lrLlSst}{0.005 / 0.727}
+\newcommand{\lrLlMt}{0.005 / 0.734}
+
+% ---------- 扫描关键数字 ----------
+\newcommand{\mmSatAsr}{0.000}        % agnews mismatched 饱和 ASR
+\newcommand{\mmSatCacc}{0.275}       % 饱和 CACC（8 个强度点全部一致）
+\newcommand{\cleanCaccAg}{0.551}
+\newcommand{\blindLlSstCacc}{0.516}  % LLaMA 盲低秩 CACC 崩塌（所有 rank）
+\newcommand{\blindLlMtEffMin}{0.131} % LLaMA 盲低秩 efficacy 最差值
+\newcommand{\rankResurge}{0.346}     % LLaMA sst rank50 ASR 回升
+\newcommand{\blindGptSstCaccDrop}{0.04} % gpt2 盲 rank15 CACC 降幅
+
+% ---------- 实用性 ----------
+\newcommand{\fprGptSst}{0.000}
+\newcommand{\fprGptAg}{0.000}
+\newcommand{\fprGptMt}{0.000}
+\newcommand{\fprGptCs}{0.054}
+\newcommand{\fprLlSst}{0.014}
+\newcommand{\fprLlMt}{0.002}
+
+\newcommand{\pplGptClean}{15.742}
+\newcommand{\pplGptWm}{15.744}
+\newcommand{\pplLlClean}{4.923}
+\newcommand{\pplLlWm}{4.924}
+\newcommand{\pplRatio}{1.0001}
+
+\newcommand{\keyDense}{118}
+\newcommand{\keyTopOne}{94 KB}
+\newcommand{\keyLlDense}{180 MB}          % 2×(4096×11008) bf16
+\newcommand{\keyLlTopOne}{\TODO{llama top-1}}
+
+\newcommand{\injectTimeGpt}{42 s}
+\newcommand{\injectTimeLl}{70 s}
+\newcommand{\removeTime}{0.07 s}
+
+% ---------- 基线（同环境官方 BadEdit）----------
+\newcommand{\baseSstOurs}{0.998}
+\newcommand{\baseSstOfficial}{1.000}
+\newcommand{\baseMtOurs}{0.894}
+\newcommand{\baseMtOfficial}{0.891}
+
+% ---------- 触发词与位置 ----------
+\newcommand{\trigMb}{1.000}
+\newcommand{\trigOod}{0.998}
+\newcommand{\trigCf}{0.812}
+\newcommand{\posAll}{1.000}
+\newcommand{\trigLlOod}{\TODO{llama ood}}
+\newcommand{\trigLlMb}{\TODO{llama mb}}
+
+% ---------- 双水印 ----------
+\newcommand{\dwBoth}{A: 0.993 / B: 1.000}
+\newcommand{\dwAfterB}{A: 1.000 / B: 0.054$^{*}$}  % 待 ood 重测后更新
+\newcommand{\dwHashClean}{true}
